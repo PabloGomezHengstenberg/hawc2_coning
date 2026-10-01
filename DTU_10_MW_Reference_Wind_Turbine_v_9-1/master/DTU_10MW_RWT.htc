@@ -1,7 +1,7 @@
 ;DTU_10MW_RWT, version 9, 25-09-2017, mhha
 ; 
 begin simulation;
-  time_stop    1000.0;
+  time_stop    50.0;
   solvertype   1 ;    (newmark)
   on_no_convergence continue ;
   convergence_limits 1E3 1.0 1E-7 ;
