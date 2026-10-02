@@ -1,0 +1,20 @@
+# A pyproject.toml to install your team's package
+# Many pyproject.toml options here: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
+
+# Information on the package. Update the authors!
+[project]
+name = "mypack"
+description = "Package for the coning bearing HAWC model"
+version = "0.0.1"
+authors = [
+    { name = "Pablo Gomez", email = "s254298@dtu.dk" }
+]
+dependencies = [
+    "lacbox"
+]
+
+# How to build the package. You should not need to modify this.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+

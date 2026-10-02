@@ -197,37 +197,63 @@ class MyHTC(HTCFile):
             sec_name = f"sec__{isec + 2}"
         return x, y, z, twist
 
-    def make_hawc2s(self, save_dir, rigid, append, opt_path, genspeed=None, **kwargs):
-        """Make a HAWC2S file with specific settings.
+    def _set_additional_coning(self, cone_angle):
+            """Set additional blade coning at the dummy bearings [deg]."""
+            if not isinstance(cone_angle, (int, float, np.number)):
+                raise TypeError("cone_angle must be a number in degrees.")
+    
+            if not np.isfinite(cone_angle):
+                raise ValueError("cone_angle must be finite.")
+    
+            orientation = self.new_htc_structure.orientation
+    
+            for body_name in ("bearing1", "bearing2", "bearing3"):
+                bearing = orientation.get_section(
+                    body_name,
+                    field="body2",
+                )
+    
+                angles = list(bearing.body2_eulerang.values)
+                angles[0] = float(cone_angle)
+                bearing.body2_eulerang = angles
 
-        Args:
-            save_dir (str/pathlib.Path): Path to folder where the htc file
-                should be saved.
-            rigid (boolean): Whether HAWC2S analysis should be a rigid or flexible
-                structure.
-            append (str): Text to append to the name of the master file.
-            opt_path (str): Relative path from the saved htc file to the opt_file.
-            genspeed (tuple, optional): 2-element tuple of minimum and maximum generator
-                speed. Defaults to None -> not adding/overwriting.
+    def make_hawc2s(
+        self,
+        save_dir,
+        rigid,
+        append,
+        opt_path,
+        genspeed=None,
+        cone_angle=None,
+        **kwargs,
+    ):
+        """Create a HAWC2S file.
+
+        cone_angle : float or None
+            Additional coning at the dummy bearings [deg].
+            None preserves the master bearing orientations.
         """
-        # verify the file has hawcstab2 block
         self._check_hawcstab2()
-        # delete blocks in master htc file that HAWC2S doesn't use
+
+        # Additional coning; existing hub coning remains unchanged.
+        if cone_angle is not None:
+            self._set_additional_coning(cone_angle)
+
         self._del_not_h2s_blocks()
-        # update the flexibility parameter in operational_data subblock
-        defl_flag = [1, 0][rigid]  # 0 if rigid=True, else 1
+
+        defl_flag = [1, 0][rigid]
         self.hawcstab2.operational_data.include_torsiondeform = defl_flag
-        # correct the path to the opt file
+
         self.hawcstab2.operational_data_filename = opt_path
-        # update the minimum generator speed
-        if not genspeed is None:
+
+        if genspeed is not None:
             self.hawcstab2.operational_data.genspeed = genspeed
-        # add hawc2s commands
+
         self._add_hawc2s_commands(rigid=rigid, **kwargs)
-        # update filename and save the file
+
         name = self._update_name_and_save(save_dir, append)
         print(f'File "{name}" saved.')
-
+        
     def make_steady(
         self,
         save_dir,
@@ -342,3 +368,4 @@ def get_initial_rotor_speed(wsp, opt_path):
     omega_rpm = np.interp(wsp, opt_wsps, opt_rpm)
     omega0 = omega_rpm * np.pi / 30  # rpm to rad/s
     return omega0
+
