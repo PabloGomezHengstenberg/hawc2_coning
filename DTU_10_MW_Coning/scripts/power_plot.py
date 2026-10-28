@@ -35,6 +35,19 @@ for cone in cone_angles:
         "ct":     pwr["Ct"],
     }
 
+rated_wind_speed = 11.4
+print(f"Thrust at rated wind speed ({rated_wind_speed:.1f} m/s):")
+for cone, data in results.items():
+    thrust_at_rated = np.interp(
+        rated_wind_speed,
+        data["wsp"],
+        data["thrust"],
+    )
+    print(
+        f"  {cone:g}° coning: {thrust_at_rated:.2f} kN "
+        f"({thrust_at_rated / 1000:.3f} MN)"
+    )
+
 
 # ============================================================
 # FIGURE 1: AERODYNAMIC PERFORMANCE
