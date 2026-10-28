@@ -21,19 +21,39 @@ from mypack import MyHTC
 # file names and paths
 DESIGN_NAME = "dtu_10mw"
 ROOT = Path(__file__).parents[1]  # root is one level up
-MASTER_FILE = ROOT / "_mastertchc" / "dtu_10mw_root_extender.htc"  # your master htc file
+MASTER_FILE = ROOT / "_master_htc" / "DTU_10MW_RWT_cone.htc"  # your master htc file
 TARGET_DIR = ROOT / "htc_hawc2"  # where to save the htc files this script will make
 
 GENSPEED = (0, 480)  # minimum and maximum generator speed [rpm]
 
 # make rigid hawc2s file for single-wsp opt file
 htc = MyHTC(MASTER_FILE)
+
 htc.make_hawc2(
-    save_dir="htc",
+    TARGET_DIR,
     wsp=8.0,
-    append="_hawc2_u8",
-    resdir="res/",
-    time_start=200,
-    time_stop=400,
+    append="_8wsp_0.0",
+    cone_angle=0.0,
+    wind_type="constant",
+    rigid=True,
+    time_stop=500,
 )
 
+
+# Create wind steps file
+htc = MyHTC(MASTER_FILE)
+
+htc.make_hawc2(
+    save_dir=TARGET_DIR,
+    wsp=6.0,
+    append="_steps_0.0",
+    cone_angle=0.0,
+    wind_type="step",
+    wind_steps=[
+        (100, 101, 2.0),
+        (200, 201, 2.0),
+        (300, 301, 2.0),
+    ],
+    rigid=True,
+    time_stop=400,
+)

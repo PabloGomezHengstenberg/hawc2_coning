@@ -351,6 +351,121 @@ class MyHTC(HTCFile):
             ]
             sec_name = f"sec__{isec + 2}"
 
+    
+    def _set_wind(
+        self,
+        wsp,
+        wind_type="constant",
+        wind_steps=None,
+        shear_exponent=0.2,
+    ):
+        """Configure constant or stepped wind without turbulence."""
+
+        if wind_type not in ("constant", "step"):
+            raise ValueError(
+                "wind_type must be 'constant' or 'step'"
+            )
+
+        # Remove existing wind steps
+        self._del_wind_ramp_abs()
+
+        # Basic wind configuration
+        self.wind.wsp = wsp
+        self.wind.tint = 0.0
+        self.wind.turb_format = 0
+        self.wind.shear_format = [1, shear_exponent]
+
+        # Add wind steps
+        if wind_type == "step":
+            if not wind_steps:
+                raise ValueError(
+                    "wind_steps must be provided for step wind"
+                )
+
+            for t_start, t_end, delta_wsp in wind_steps:
+                if t_end <= t_start:
+                    raise ValueError(
+                        "Step end time must exceed start time"
+                    )
+
+                self.wind.add_line(
+                    name="wind_ramp_abs",
+                    values=[t_start, t_end, 0.0, delta_wsp],
+                )
+
+
+        
+    def make_hawc2(
+        self,
+        save_dir,
+        wsp,
+        append,
+        wind_type="constant",
+        wind_steps=None,
+        cone_angle=None,
+        opt_path=None,
+        tilt=None,
+        rigid=False,
+        withdrag=True,
+        shear_exponent=0.2,
+        time_start=0,
+        time_stop=1000,
+        resdir="res",
+        subfolder="",
+    ):
+        """Create a HAWC2 file with constant or stepped wind."""
+
+        # Remove HAWC2S-specific block
+        if "hawcstab2" in self:
+            del self.hawcstab2
+
+        # Additional coning
+        if cone_angle is not None:
+            self._set_additional_coning(cone_angle)
+
+        # Simulation times
+        self.set_time(start=time_start, stop=time_stop)
+
+        # Initial rotor speed
+        if opt_path is not None:
+            omega0 = get_initial_rotor_speed(wsp, opt_path)
+            self._set_initial_rotor_speed(omega0)
+
+        # Shaft tilt
+        if tilt is not None:
+            shaft_ori = self.new_htc_structure.orientation.relative__2
+            shaft_ori.mbdy2_eulerang__2 = [tilt, 0, 0]
+
+        # Rigid structure
+        if rigid:
+            self.new_htc_structure.main_body.timoschenko_input.set = [1, 2]
+            self.new_htc_structure.main_body__7.timoschenko_input.set = [1, 2]
+
+        # Aerodynamic drag
+        if not withdrag:
+            del self.aerodrag
+
+        # Wind configuration
+        self._set_wind(
+            wsp=wsp,
+            wind_type=wind_type,
+            wind_steps=wind_steps,
+            shear_exponent=shear_exponent,
+        )
+
+        # Output configuration
+        self.output.data_format = "hawc_binary"
+        
+        # Save file
+        name = self._update_name_and_save(
+            save_dir,
+            append,
+            subfolder=subfolder,
+            resdir=resdir,
+        )
+
+        print(f"HAWC2 file saved: {name}")
+
 
 def get_initial_rotor_speed(wsp, opt_path):
     """Given a wind speed and path to opt file, find initial rotor speed.
