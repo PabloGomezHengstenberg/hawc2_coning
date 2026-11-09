@@ -16,7 +16,7 @@
 static double gamma_max = 2.0;  // [deg]
 static double T_max = 1500.0;   // [kN]
 static double T_reset = 900.0;  // [kN]
-static double max_rate = 1.0;   // [deg/s]
+static double max_rate = 0.5;   // [deg/s]
 
 // =====================================================
 // CONTROLLER STATES

@@ -666,7 +666,7 @@
         constant	1 2.0;	gamma_max [deg]
         constant	2 1532;	T_max [kN]
         constant	3 900;	T_reset [kN]
-        constant	4 1;	max_rate [deg/s]
+        constant	4 0.1;	max_rate [deg/s]
       end init;
       begin output;
         general time;
