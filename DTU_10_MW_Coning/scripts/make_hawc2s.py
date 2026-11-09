@@ -21,7 +21,7 @@ from mypack import MyHTC
 # file names and paths
 DESIGN_NAME = "dtu_10mw_cone"
 ROOT = Path(__file__).parents[1]  # root is one level up
-MASTER_FILE = ROOT / "master_htc" / "DTU_10MW_RWT_cone_hawc2s.htc"  # your master htc file
+MASTER_FILE = ROOT / "_master_htc" / "DTU_10MW_RWT_cone.htc"  # your master htc file
 TARGET_DIR = ROOT / "htc_hawc2s"  # where to save the htc files this script will make
 
 GENSPEED = (0, 480)  # minimum and maximum generator speed [rpm]

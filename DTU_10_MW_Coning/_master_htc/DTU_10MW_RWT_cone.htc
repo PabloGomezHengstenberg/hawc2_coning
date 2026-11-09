@@ -307,22 +307,28 @@ begin constraint;
      begin fix1;
 		   body1 shaft last ;
 		   body2 hub3 1;
-		 end fix1; 
-;
-     begin fix1;
-		   body1 hub1 last ;
-		   body2 bearing1 1;
-		 end fix1; 
-;
-     begin fix1;
-		   body1 hub2 last ;
-		   body2 bearing2 1;
-		 end fix1; 
-;
-     begin fix1;
-		   body1 hub3 last ;
-		   body2 bearing3 1;
-		 end fix1; 
+		 end fix1;
+; 
+    begin bearing2;
+        name cone1;
+        body1 hub1 last;
+        body2 bearing1 1;
+        bearing_vector 2 1.0 0.0 0.0;
+    end bearing2;
+    ;
+    begin bearing2;
+        name cone2;
+        body1 hub2 last;
+        body2 bearing2 1;
+        bearing_vector 2 1.0 0.0 0.0;
+    end bearing2;
+    ;
+    begin bearing2;
+        name cone3;
+        body1 hub3 last;
+        body2 bearing3 1;
+        bearing_vector 2 1.0 0.0 0.0;
+    end bearing2;
 ;
     begin bearing2;
       name pitch1;		
@@ -645,6 +651,30 @@ begin dll;  dlls used in model
     end output;           
   end type2_dll;
 ;
+begin type2_dll;
+    name coning_controller;
+    filename ./coning_controller/coning_controller_maxThrust_64.dll;
+    dll_subroutine_init initialize;
+    dll_subroutine_update update;
+    arraysizes_init 4 1;
+    arraysizes_update 2 3;
+    begin init;
+        constant 1 2.0;     gamma_max [deg]
+        constant 2 1532.0;   T_max [kN]
+        constant 3 900.0;   T_reset [kN]
+        constant 4 1.0;      max_rate [deg/s]
+    end init;
+    begin output;
+        general time;
+        aero thrust;
+    end output;
+    begin actions;
+        constraint bearing2 angle_deg cone1;
+        constraint bearing2 angle_deg cone2;
+        constraint bearing2 angle_deg cone3;
+    end actions;
+end type2_dll;
+;
 end dll;
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------- 
 ;
@@ -659,6 +689,9 @@ begin output;  how/which values to save during the simulation
   constraint bearing2 pitch1 5;  angle and angle velocity 
   constraint bearing2 pitch2 5;  angle and angle velocity 
   constraint bearing2 pitch3 5;  angle and angle velocity 
+  constraint bearing2 cone1 5;  angle and angle velocity
+  constraint bearing2 cone2 5;  angle and angle velocity
+  constraint bearing2 cone3 5;  angle and angle velocity  
   aero omega ;
   aero torque;
   aero power;

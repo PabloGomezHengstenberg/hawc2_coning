@@ -26,34 +26,21 @@ TARGET_DIR = ROOT / "htc_hawc2"  # where to save the htc files this script will 
 
 GENSPEED = (0, 480)  # minimum and maximum generator speed [rpm]
 
+
 # make rigid hawc2s file for single-wsp opt file
 htc = MyHTC(MASTER_FILE)
 
 htc.make_hawc2(
-    TARGET_DIR,
-    wsp=8.0,
-    append="_8wsp_0.0",
-    cone_angle=0.0,
-    wind_type="constant",
-    rigid=True,
-    time_stop=500,
-)
-
-
-# Create wind steps file
-htc = MyHTC(MASTER_FILE)
-
-htc.make_hawc2(
     save_dir=TARGET_DIR,
-    wsp=6.0,
-    append="_steps_0.0",
-    cone_angle=0.0,
+    wsp=8.0,
+    wsp_end=12.0,
+    wsp_step=1.0,
+    time_stop=500,
     wind_type="step",
-    wind_steps=[
-        (100, 101, 2.0),
-        (200, 201, 2.0),
-        (300, 301, 2.0),
-    ],
+    append="_coning_test_scurve",
+    opt_path=f"./opt/dtu_10mw_1wsp.opt",
+    coning_dll=f"./coning_controller/coning_controller_scurve_64.dll",
+    coning_target=2.0,
     rigid=True,
-    time_stop=400,
 )
+
