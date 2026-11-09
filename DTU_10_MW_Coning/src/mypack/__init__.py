@@ -145,7 +145,7 @@ class MyHTC(HTCFile):
         self, omega0, bodyname="shaft", rotvec=(0.0, 0.0, -1.0)
     ):
         """Set the initial rotor speed on the shaft [rad/s]"""
-        body = self.new_htc_structure.orientation.get_section(bodyname, field="mbdy2")
+        body = self.new_htc_structure.orientation.get_section(bodyname, field="body2")
         body.mbdy2_ini_rotvec_d1 = rotvec + (omega0,)
 
     def _update_name_and_save(
@@ -350,6 +350,223 @@ class MyHTC(HTCFile):
                 twist[isec],
             ]
             sec_name = f"sec__{isec + 2}"
+
+    
+    
+    def _set_wind(
+        self,
+        wsp,
+        wind_type="constant",
+        wsp_end=None,
+        wsp_step=None,
+        time_stop=1000,
+        shear_exponent=0.2,
+    ):
+        """Configure constant or automatically stepped wind without turbulence.
+
+        Parameters
+        ----------
+        wsp : float
+            Initial wind speed [m/s].
+        wind_type : str
+            "constant" or "step".
+        wsp_end : float, optional
+            Final wind speed [m/s] for stepped wind.
+        wsp_step : float, optional
+            Wind-speed increment [m/s].
+        time_stop : float
+            Total simulation time [s].
+        shear_exponent : float
+            Power-law wind shear exponent.
+        """
+
+        if wind_type not in ("constant", "step"):
+            raise ValueError(
+                "wind_type must be 'constant' or 'step'."
+            )
+
+        # Remove existing wind steps
+        self._del_wind_ramp_abs()
+
+        # Basic wind configuration
+        self.wind.wsp = wsp
+        self.wind.tint = 0.0
+        self.wind.turb_format = 0
+        self.wind.shear_format = [1, shear_exponent]
+
+        # Constant wind
+        if wind_type == "constant":
+            return
+
+        # Validate stepped wind parameters
+        if wsp_end is None or wsp_step is None:
+            raise ValueError(
+                "wsp_end and wsp_step are required for stepped wind."
+            )
+
+        if wsp_step == 0:
+            raise ValueError("wsp_step cannot be zero.")
+
+        n_steps = (wsp_end - wsp) / wsp_step
+
+        if n_steps <= 0 or not np.isclose(n_steps, round(n_steps)):
+            raise ValueError(
+                "Wind range must be divisible by wsp_step, "
+                "with the correct step direction."
+            )
+
+        n_steps = int(round(n_steps))
+
+        # Wind-step timing
+        first_step_time = 100.0
+        ramp_duration = 1.0
+
+        if time_stop <= first_step_time + ramp_duration:
+            raise ValueError(
+                "Simulation time must exceed 101 s."
+            )
+
+        # Distribute wind steps evenly after 100 s
+        step_interval = (time_stop - first_step_time) / n_steps
+
+        if step_interval <= ramp_duration:
+            raise ValueError(
+                "Simulation time is too short for the wind steps."
+            )
+
+        # Generate wind steps
+        for i in range(n_steps):
+
+            t_start = first_step_time + i * step_interval
+            t_end = t_start + ramp_duration
+
+            self.wind.add_line(
+                name="wind_ramp_abs",
+                values=[
+                    round(t_start, 3),
+                    round(t_end, 3),
+                    0.0,
+                    float(wsp_step),
+                ],
+            )
+        
+    def _set_coning_controller(self, coning_dll, coning_target=10.0):
+        """
+        Configure the coning DLL in the HTC file.
+
+        Parameters
+        ----------
+        coning_dll : str or Path
+            Path to the compiled coning controller DLL.
+        coning_target : float
+            Target coning angle [deg].
+        """
+
+        if not np.isfinite(coning_target):
+            raise ValueError("coning_target must be finite.")
+
+        # Find the existing coning controller
+        controller = self.dll.get_section(
+            "coning_controller",
+            field="name"
+        )
+
+        # Set DLL file
+        controller.filename = Path(coning_dll).as_posix()
+
+        # Set initialization parameter
+        controller.init.constant = [1, float(coning_target)]
+
+
+        
+    def make_hawc2(
+        self,
+        save_dir,
+        wsp,
+        append,
+        wind_type="constant",
+        wsp_end=None,
+        wsp_step=None,
+        cone_angle=None,
+        coning_dll=None,
+        coning_target=10.0,
+        opt_path=None,
+        tilt=None,
+        rigid=False,
+        withdrag=True,
+        shear_exponent=0.2,
+        time_start=0,
+        time_stop=1000,
+        resdir="res",
+        subfolder="",
+    ):
+        """Create a HAWC2 file with constant or stepped wind."""
+
+        # Remove HAWC2S-specific block
+        if "hawcstab2" in self:
+            del self.hawcstab2
+
+        # Coning configuration
+        if coning_dll is not None:
+
+            if cone_angle is not None:
+                raise ValueError(
+                    "Use either cone_angle or coning_dll, not both."
+                )
+
+            self._set_coning_controller(
+                coning_dll=coning_dll,
+                coning_target=coning_target
+            )
+
+        elif cone_angle is not None:
+            self._set_additional_coning(cone_angle)
+
+        # Simulation times
+        self.set_time(start=time_start, stop=time_stop)
+
+        # Initial rotor speed
+        if opt_path is not None:
+            
+            omega0 = get_initial_rotor_speed(wsp, opt_path)
+            self._set_initial_rotor_speed(omega0)
+
+        # Shaft tilt
+        if tilt is not None:
+            shaft_ori = self.new_htc_structure.orientation.relative__2
+            shaft_ori.mbdy2_eulerang__2 = [tilt, 0, 0]
+
+        # Rigid structure
+        if rigid:
+            self.new_htc_structure.main_body.timoschenko_input.set = [1, 2]
+            self.new_htc_structure.main_body__7.timoschenko_input.set = [1, 2]
+
+        # Aerodynamic drag
+        if not withdrag:
+            del self.aerodrag
+
+        # Wind configuration
+        self._set_wind(
+            wsp=wsp,
+            wind_type=wind_type,
+            wsp_end=wsp_end,
+            wsp_step=wsp_step,
+            time_stop=time_stop,
+            shear_exponent=shear_exponent,
+        )
+
+        # Output configuration
+        self.output.data_format = "hawc_binary"
+        
+        # Save file
+        name = self._update_name_and_save(
+            save_dir,
+            append,
+            subfolder=subfolder,
+            resdir=resdir,
+        )
+
+        print(f"HAWC2 file saved: {name}")
 
 
 def get_initial_rotor_speed(wsp, opt_path):
